@@ -208,40 +208,54 @@ const calculateSMA = tool({
   execute: async ({ symbol, days }) => {
     try {
       const upperSymbol = symbol.toUpperCase();
-      // Fetch enough data for the SMA calculation
-      const range = days <= 50 ? "3mo" : days <= 100 ? "6mo" : "1y";
 
+      // Get API keys from shared config
+      const apiKey = apiConfig.alpacaApiKey;
+      const secretKey = apiConfig.alpacaSecretKey;
+
+      if (!apiKey || !secretKey) {
+        return "Alpaca API keys not configured.";
+      }
+
+      // Fetch historical bars from Alpaca (limit = days + 5 buffer)
+      // v2/stocks/{symbol}/bars returns ascending time order
       const response = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${upperSymbol}?interval=1d&range=${range}`
+        `https://data.alpaca.markets/v2/stocks/${upperSymbol}/bars?timeframe=1Day&limit=${days + 5}`,
+        {
+          headers: {
+            "APCA-API-KEY-ID": apiKey,
+            "APCA-API-SECRET-KEY": secretKey
+          }
+        }
       );
+
+      if (!response.ok) {
+        return `API error fetching history for ${upperSymbol}`;
+      }
+
       const data = (await response.json()) as any;
+      const bars = data.bars;
 
-      if (data.chart?.error) {
-        return `Could not find stock: ${upperSymbol}`;
+      if (!bars || bars.length < days) {
+        return `Not enough historical data for ${days}-day SMA. Found ${bars?.length || 0} days.`;
       }
 
-      const closes = data.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-      const currentPrice = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+      // Use the last 'days' bars
+      const relevantBars = bars.slice(-days);
+      const closes = relevantBars.map((b: any) => b.c);
+      const currentPrice = closes[closes.length - 1]; // Use latest close as current price reference
 
-      if (!closes || closes.length < days) {
-        return `Not enough historical data for ${days}-day SMA`;
-      }
-
-      // Get the last 'days' closing prices (filter out nulls)
-      const validCloses = closes
-        .filter((c: number | null) => c !== null)
-        .slice(-days);
       const sma =
-        validCloses.reduce((sum: number, price: number) => sum + price, 0) /
-        validCloses.length;
+        closes.reduce((sum: number, price: number) => sum + price, 0) /
+        closes.length;
 
       const percentFromSMA = ((currentPrice - sma) / sma) * 100;
       const trend = percentFromSMA > 0 ? "above" : "below";
 
       return {
         symbol: upperSymbol,
-        currentPrice: currentPrice.toFixed(2),
-        sma: sma.toFixed(2),
+        currentPrice: `$${currentPrice.toFixed(2)}`,
+        sma: `$${sma.toFixed(2)}`,
         period: `${days}-day`,
         percentFromSMA: percentFromSMA.toFixed(2) + "%",
         trend: `Price is ${Math.abs(percentFromSMA).toFixed(2)}% ${trend} the ${days}-day SMA`,

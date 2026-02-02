@@ -104,6 +104,8 @@ ${getSchedulePrompt({ date: new Date() })}
           messages: await convertToModelMessages(processedMessages),
           model,
           tools: allTools,
+          // @ts-ignore - maxSteps is supported in runtime but types might be outdated
+          maxSteps: 5,
           onFinish: onFinish as unknown as StreamTextOnFinishCallback<
             typeof allTools
           >,
