@@ -217,10 +217,13 @@ const calculateSMA = tool({
         return "Alpaca API keys not configured.";
       }
 
-      // Fetch historical bars from Alpaca (limit = days + 5 buffer)
-      // v2/stocks/{symbol}/bars returns ascending time order
+      // Fetch historical bars from Alpaca
+      // We need to provide a start date slightly further back than 'days' to account for weekends/holidays
+      const lookbackDays = Math.ceil(days * 2 + 10);
+      const startDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
+
       const response = await fetch(
-        `https://data.alpaca.markets/v2/stocks/${upperSymbol}/bars?timeframe=1Day&limit=${days + 5}`,
+        `https://data.alpaca.markets/v2/stocks/${upperSymbol}/bars?timeframe=1Day&start=${startDate}&limit=${1000}`,
         {
           headers: {
             "APCA-API-KEY-ID": apiKey,
