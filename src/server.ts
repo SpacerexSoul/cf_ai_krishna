@@ -111,7 +111,8 @@ ${getSchedulePrompt({ date: new Date() })}
           abortSignal: options?.abortSignal
         });
 
-        writer.merge(result.toUIMessageStream());
+        // Await the merge to ensure stream completes before closing
+        await writer.merge(result.toUIMessageStream());
       }
     });
 

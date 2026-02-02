@@ -131,24 +131,63 @@ const getCryptoPrice = tool({
   }),
   execute: async ({ coin }) => {
     try {
-      const coinId = coin.toLowerCase();
-      const response = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd&include_24hr_change=true`
-      );
-      const data = (await response.json()) as any;
+      // Map common names to symbols
+      const map: Record<string, string> = {
+        bitcoin: "BTC/USD",
+        btc: "BTC/USD",
+        ethereum: "ETH/USD",
+        eth: "ETH/USD",
+        solana: "SOL/USD",
+        sol: "SOL/USD",
+        dogecoin: "DOGE/USD",
+        doge: "DOGE/USD",
+        cardano: "ADA/USD",
+        ada: "ADA/USD",
+        ripple: "XRP/USD",
+        xrp: "XRP/USD"
+      };
 
-      if (!data[coinId]) {
-        return `Could not find cryptocurrency: ${coin}. Try: bitcoin, ethereum, solana, dogecoin`;
+      const cleanName = coin.toLowerCase().trim();
+      const symbol = map[cleanName] || `${cleanName.toUpperCase()}/USD`;
+
+      // Get API keys from shared config
+      const apiKey = apiConfig.alpacaApiKey;
+      const secretKey = apiConfig.alpacaSecretKey;
+
+      if (!apiKey || !secretKey) {
+        return "Alpaca API keys not configured.";
       }
 
-      const price = data[coinId].usd;
-      const change24h = data[coinId].usd_24h_change;
+      // Alpaca Crypto API
+      const response = await fetch(
+        `https://data.alpaca.markets/v1beta3/crypto/us/latest/trades?symbols=${symbol}`,
+        {
+          headers: {
+            "APCA-API-KEY-ID": apiKey,
+            "APCA-API-SECRET-KEY": secretKey
+          }
+        }
+      );
+
+      if (!response.ok) {
+        return `Could not find crypto: ${coin}. Try standard symbols like BTC, ETH, SOL.`;
+      }
+
+      const data = (await response.json()) as any;
+      const trade = data.trades?.[symbol];
+
+      if (!trade) {
+        return `Could not find price for ${symbol}. Try: bitcoin, ethereum, solana.`;
+      }
+
+      const price = trade.p;
+      const size = trade.s;
 
       return {
-        coin: coinId,
-        price: price.toFixed(2),
-        currency: "USD",
-        change24h: change24h?.toFixed(2) + "%" || "N/A"
+        coin: symbol,
+        price: `$${price.toFixed(2)}`,
+        status: "Live Price ⚡️",
+        volume: size
       };
     } catch (error) {
       return `Error fetching crypto price: ${error}`;
