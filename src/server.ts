@@ -14,6 +14,7 @@ import {
 import { createWorkersAI } from "workers-ai-provider";
 import { processToolCalls, cleanupMessages } from "./utils";
 import { tools, executions } from "./tools";
+import { setApiConfig } from "./shared";
 
 /**
  * Finance AI Agent - Built for Cloudflare Internship Application
@@ -45,6 +46,12 @@ export class Chat extends AIChatAgent<Env> {
     onFinish: StreamTextOnFinishCallback<ToolSet>,
     options?: { abortSignal?: AbortSignal }
   ) {
+    // Set API keys from environment for tools to use
+    setApiConfig({
+      alpacaApiKey: this.env.ALPACA_API_KEY || "",
+      alpacaSecretKey: this.env.ALPACA_SECRET_KEY || ""
+    });
+
     // Initialize Workers AI with Llama 3.3
     const workersai = createWorkersAI({ binding: this.env.AI });
     // @ts-expect-error - Model exists but not yet in type definitions

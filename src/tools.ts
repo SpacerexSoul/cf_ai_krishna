@@ -7,6 +7,7 @@ import { z } from "zod/v3";
 import type { Chat } from "./server";
 import { getCurrentAgent } from "agents";
 import { scheduleSchema } from "agents/schedule";
+import { apiConfig } from "./shared";
 
 // Type for price alerts
 interface PriceAlert {
@@ -24,8 +25,12 @@ interface AgentState {
 
 // ==================== MARKET DATA TOOLS ======================================
 
+// API keys are stored in Cloudflare secrets and passed via env
+// Set with: npx wrangler secret put ALPACA_API_KEY
+//           npx wrangler secret put ALPACA_SECRET_KEY
+
 /**
- * Get current stock price using Yahoo Finance API (no key required)
+ * Get current stock price using Alpaca Markets API
  */
 const getStockPrice = tool({
   description:
@@ -36,38 +41,79 @@ const getStockPrice = tool({
   execute: async ({ symbol }) => {
     try {
       const upperSymbol = symbol.toUpperCase();
+
+      // Get API keys from shared config (set by server)
+      const apiKey = apiConfig.alpacaApiKey;
+      const secretKey = apiConfig.alpacaSecretKey;
+
+      if (!apiKey || !secretKey) {
+        return "Alpaca API keys not configured. Please set ALPACA_API_KEY and ALPACA_SECRET_KEY secrets.";
+      }
+
+      // Use Alpaca Markets API for latest trade
       const response = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${upperSymbol}?interval=1d&range=5d`
+        `https://data.alpaca.markets/v2/stocks/${upperSymbol}/trades/latest`,
+        {
+          headers: {
+            "APCA-API-KEY-ID": apiKey,
+            "APCA-API-SECRET-KEY": secretKey
+          }
+        }
       );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return `API error (${response.status}): ${errorText}`;
+      }
+
       const data = (await response.json()) as any;
+      const trade = data.trade;
 
-      if (data.chart?.error) {
-        return `Could not find stock with symbol: ${upperSymbol}`;
+      if (!trade || !trade.p) {
+        return `Could not find stock: ${upperSymbol}. Make sure it's a valid US stock ticker.`;
       }
 
-      const meta = data.chart?.result?.[0]?.meta;
-      const quote = data.chart?.result?.[0]?.indicators?.quote?.[0];
+      const price = trade.p;
+      const size = trade.s;
+      const timestamp = new Date(trade.t).toLocaleString();
 
-      if (!meta || !quote) {
-        return `Could not fetch data for ${upperSymbol}`;
+      // Get previous close for change calculation
+      const barsResponse = await fetch(
+        `https://data.alpaca.markets/v2/stocks/${upperSymbol}/bars?timeframe=1Day&limit=2`,
+        {
+          headers: {
+            "APCA-API-KEY-ID": apiKey,
+            "APCA-API-SECRET-KEY": secretKey
+          }
+        }
+      );
+
+      let change = 0;
+      let changePercent = 0;
+      let previousClose = 0;
+
+      if (barsResponse.ok) {
+        const barsData = (await barsResponse.json()) as any;
+        const bars = barsData.bars;
+        if (bars && bars.length >= 2) {
+          previousClose = bars[bars.length - 2].c;
+          change = price - previousClose;
+          changePercent = (change / previousClose) * 100;
+        }
       }
-
-      const currentPrice = meta.regularMarketPrice;
-      const previousClose = meta.previousClose;
-      const change = currentPrice - previousClose;
-      const changePercent = (change / previousClose) * 100;
 
       return {
         symbol: upperSymbol,
-        name: meta.shortName || upperSymbol,
-        price: currentPrice.toFixed(2),
-        currency: meta.currency,
-        change: change.toFixed(2),
-        changePercent: changePercent.toFixed(2) + "%",
-        previousClose: previousClose.toFixed(2)
+        price: `$${price.toFixed(2)}`,
+        previousClose: previousClose > 0 ? `$${previousClose.toFixed(2)}` : "N/A",
+        change: `${change >= 0 ? "+" : ""}$${change.toFixed(2)}`,
+        changePercent: `${changePercent >= 0 ? "+" : ""}${changePercent.toFixed(2)}%`,
+        status: change >= 0 ? "📈 Up" : "📉 Down",
+        lastTrade: timestamp,
+        volume: size
       };
     } catch (error) {
-      return `Error fetching stock price: ${error}`;
+      return `Error fetching stock price: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
 });
