@@ -52,10 +52,10 @@ export class Chat extends AIChatAgent<Env> {
       alpacaSecretKey: this.env.ALPACA_SECRET_KEY || ""
     });
 
-    // Initialize Workers AI with Llama 3.3 (better tool use)
+    // Initialize Workers AI with Llama 3.1 (more stable for tools)
     const workersai = createWorkersAI({ binding: this.env.AI });
     // @ts-expect-error - Model exists but not yet in type definitions
-    const model = workersai("@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+    const model = workersai("@cf/meta/llama-3.1-70b-instruct");
 
     const allTools = {
       ...tools,
@@ -73,35 +73,21 @@ export class Chat extends AIChatAgent<Env> {
         });
 
         const result = streamText({
-          system: `You are FinanceAgent, a friendly AI-powered financial assistant built on Cloudflare.
+          system: `You are a helpful financial assistant.
 
-You help users with:
-- 📈 Real-time stock prices (use getStockPrice with ticker symbols like AAPL, TSLA, GOOGL)
-- 🪙 Cryptocurrency prices (use getCryptoPrice with names like bitcoin, ethereum, solana)
-- 📊 Technical analysis: Calculate Simple Moving Averages (SMA) using calculateSMA
-- 📉 Price performance: Track price changes over periods using getPriceChange
-- 🔔 Price alerts: Set alerts using setPriceAlert, view with listAlerts, remove with deleteAlert
+Tools available:
+- getStockPrice: Get real-time stock data.
+- getCryptoPrice: Get real-time crypto data.
+- calculateSMA: Calculate Simple Moving Average.
+- setPriceAlert/listAlerts/deleteAlert: Manage price alerts.
 
-IMPORTANT RESPONSE GUIDELINES:
-- After receiving tool results, ALWAYS respond in friendly natural language
-- Format prices and data nicely for the user
-- NEVER output raw JSON or debug object dumps
-- NEVER write out tool calls in text (like "Here is the function call:"). Just use the tool directly.
-- Use emojis sparingly to make responses engaging
-- When showing stock prices, give a brief summary like: "Tesla (TSLA) is trading at $420.15, up 1.2% today! 📈"
-- Include relevant context like time of last trade, market status, etc.
-- Be conversational and helpful, not robotic
+Guidelines:
+- USE TOOLS DIRECTLY. Do not describe the tool call.
+- Do not output raw JSON.
+- Answer in friendly text.
+- If the tool fails, apologize and explain why.
 
-Example response after getting stock data:
-"Apple (AAPL) is currently trading at $189.50, down 0.5% from yesterday's close of $190.45. The last trade was at 2:30 PM."
-
-Additional guidelines:
-- Always explain financial concepts simply
-- For SMA analysis, explain what the result means (bullish/bearish signals)
-- When setting alerts, confirm the details back to the user
-- If you don't know a stock symbol, ask the user to clarify
-
-${getSchedulePrompt({ date: new Date() })}
+Date: ${new Date().toISOString().split("T")[0]}
 `,
           messages: await convertToModelMessages(processedMessages),
           model,
