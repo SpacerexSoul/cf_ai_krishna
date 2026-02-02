@@ -52,10 +52,10 @@ export class Chat extends AIChatAgent<Env> {
       alpacaSecretKey: this.env.ALPACA_SECRET_KEY || ""
     });
 
-    // Initialize Workers AI with Llama 3.3
+    // Initialize Workers AI with Llama 3.1 (more stable than 3.3 for tool use)
     const workersai = createWorkersAI({ binding: this.env.AI });
     // @ts-expect-error - Model exists but not yet in type definitions
-    const model = workersai("@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+    const model = workersai("@cf/meta/llama-3.1-70b-instruct");
 
     const allTools = {
       ...tools,
