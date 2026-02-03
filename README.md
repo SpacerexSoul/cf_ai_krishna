@@ -1,6 +1,6 @@
 # cf_ai_krishna – Finance AI Agent 💰
 
-A conversational AI-powered financial assistant built on Cloudflare's edge infrastructure. Ask questions about stock prices, cryptocurrencies, calculate technical indicators, and set price alerts – all through natural language.
+A conversational AI-powered financial assistant built on Cloudflare's edge infrastructure. Ask questions about stock prices, cryptocurrencies, and set price alerts – all through natural language.
 
 **Built by Krishna Dattani** for Cloudflare Internship Application
 
@@ -12,8 +12,6 @@ A conversational AI-powered financial assistant built on Cloudflare's edge infra
 |---------|-------------|
 | 📈 **Stock Prices** | Real-time stock quotes (AAPL, TSLA, GOOGL, etc.) |
 | 🪙 **Crypto Prices** | Live cryptocurrency prices (Bitcoin, Ethereum, Solana) |
-| 📊 **SMA Calculator** | Calculate Simple Moving Averages (5-200 days) |
-| 📉 **Performance Tracking** | Compare prices over time periods (1d to 1y) |
 | 🔔 **Price Alerts** | Get notified when assets hit target prices |
 | 💬 **Natural Language** | Just ask in plain English |
 | 💾 **Persistent Memory** | Conversation history and alerts are saved |
@@ -27,7 +25,7 @@ A conversational AI-powered financial assistant built on Cloudflare's edge infra
 │                    Cloudflare Edge                       │
 ├─────────────────────────────────────────────────────────┤
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐ │
-│  │  Chat UI    │◄──►│   Finance   │◄──►│   Llama 3.3 │ │
+│  │  Chat UI    │◄──►│   Finance   │◄──►│   Llama 3.1 │ │
 │  │  (React)    │    │   Agent     │    │ Workers AI  │ │
 │  └─────────────┘    │  (Durable   │    └─────────────┘ │
 │                     │   Object)   │                     │
@@ -37,13 +35,13 @@ A conversational AI-powered financial assistant built on Cloudflare's edge infra
 │              │    Scheduled Alarms       │             │
 │              │    (Price Monitoring)     │             │
 │              └───────────────────────────┘             │
-└─────────────────────────────────────────────────────────┘
+40: └─────────────────────────────────────────────────────────┘
                             │
                             ▼
               ┌───────────────────────────┐
               │     External APIs          │
-              │  • Yahoo Finance (Stocks) │
-              │  • CoinGecko (Crypto)     │
+              │  • Alpaca Markets API     │
+              │  (Stocks & Crypto)        │
               └───────────────────────────┘
 ```
 
@@ -53,7 +51,7 @@ A conversational AI-powered financial assistant built on Cloudflare's edge infra
 
 | Requirement | Implementation |
 |-------------|----------------|
-| **LLM** | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` via Workers AI |
+| **LLM** | `@cf/meta/llama-3.1-70b-instruct` via Workers AI |
 | **Workflow/Coordination** | Durable Objects for persistent agent state |
 | **User Input** | React chat interface with WebSocket real-time updates |
 | **Memory/State** | Durable Object state for alerts + conversation history |
@@ -62,20 +60,29 @@ A conversational AI-powered financial assistant built on Cloudflare's edge infra
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### 1. Prerequisites
 - Node.js 18+
 - Cloudflare account (free tier works)
 - Wrangler CLI (`npm i -g wrangler`)
+- **Alpaca Markets Account** (Free paper trading account required for API keys)
+  - Sign up at [alpaca.markets](https://alpaca.markets/)
+  - Go to your Dashboard -> "Paper Trading" -> "View Keys"
+  - You will need your **Key ID** and **Secret Key**
 
-### Local Development
+### 2. Local Development
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/cf_ai_krishna.git
+git clone https://github.com/SpacerexSoul/cf_ai_krishna.git
 cd cf_ai_krishna
 
 # Install dependencies
 npm install
+
+# Set API Keys (Required for local dev)
+# Create a .dev.vars file
+echo "ALPACA_API_KEY=your_key_here" >> .dev.vars
+echo "ALPACA_SECRET_KEY=your_secret_here" >> .dev.vars
 
 # Start dev server
 npm run dev
@@ -83,11 +90,18 @@ npm run dev
 
 Open http://localhost:8787 in your browser.
 
-### Deploy to Cloudflare
+### 3. Deploy to Cloudflare
 
 ```bash
 # Login to Cloudflare
 wrangler login
+
+# Set Secrets in Cloudflare (CRITICAL STEP)
+npx wrangler secret put ALPACA_API_KEY
+# (Enter your Key ID when prompted)
+
+npx wrangler secret put ALPACA_SECRET_KEY
+# (Enter your Secret Key when prompted)
 
 # Deploy
 npm run deploy
@@ -102,13 +116,6 @@ You: What's the price of Apple stock?
 Agent: Apple (AAPL) is trading at $189.50:
        • Change today: +$2.30 (+1.23%)
        • Previous close: $187.20
-
-You: Calculate Tesla's 20-day moving average
-Agent: Tesla (TSLA) 20-day SMA Analysis:
-       • Current Price: $248.50
-       • 20-day SMA: $242.15
-       • Price is 2.62% above the SMA
-       • Signal: Bullish (price above SMA)
 
 You: Alert me when Bitcoin drops below $40000
 Agent: ✅ Alert set: Notify when bitcoin goes below $40000
@@ -127,7 +134,7 @@ Agent: You have 1 active alert:
 cf_ai_krishna/
 ├── src/
 │   ├── server.ts      # Main agent (Durable Object + Workers AI)
-│   ├── tools.ts       # Finance tools (prices, SMA, alerts)
+│   ├── tools.ts       # Finance tools (Alpaca API, alerts)
 │   ├── app.tsx        # React chat UI
 │   └── components/    # UI components
 ├── wrangler.jsonc     # Cloudflare config
@@ -141,10 +148,8 @@ cf_ai_krishna/
 
 | Tool | Description | Example Input |
 |------|-------------|---------------|
-| `getStockPrice` | Get real-time stock quote | "AAPL", "TSLA" |
-| `getCryptoPrice` | Get crypto price | "bitcoin", "ethereum" |
-| `calculateSMA` | Calculate moving average | Symbol + days (5-200) |
-| `getPriceChange` | Get % change over period | Symbol + period (1d-1y) |
+| `getStockPrice` | Get real-time stock quote (Alpaca) | "AAPL", "TSLA" |
+| `getCryptoPrice` | Get crypto price (Alpaca) | "bitcoin", "ethereum" |
 | `setPriceAlert` | Create price alert | Symbol + target + above/below |
 | `listAlerts` | Show active alerts | - |
 | `deleteAlert` | Remove an alert | Alert ID |
@@ -153,8 +158,7 @@ cf_ai_krishna/
 
 ## 🔒 Data Sources
 
-- **Stocks**: Yahoo Finance API (no API key required)
-- **Crypto**: CoinGecko API (no API key required)
+- **Alpaca Markets API**: Used for both Real-time Stock and Crypto data. High reliability and latency-free.
 
 ---
 
