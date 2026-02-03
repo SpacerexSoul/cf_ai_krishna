@@ -37,7 +37,7 @@ Generate the TypeScript interface for the Yahoo Finance API response to ensure t
 ```
 
 **Key Implementation Details:**
-- Integrated Yahoo Finance and CoinGecko APIs
+- Integrated Alpaca Markets API for consolidated stock and crypto data
 - Implemented TypeScript interfaces for financial data structures
 - Utilized Durable Object alarms for scheduled alert monitoring
 
@@ -47,7 +47,7 @@ Generate the TypeScript interface for the Yahoo Finance API response to ensure t
 
 **Prompt:**
 ```
-Provide a boilerplate welcome message for a finance-themed chat UI that suggests example queries like "What is the price of AAPL?" or "Calculate the 50-day SMA for BTC."
+Provide a boilerplate welcome message for a finance-themed chat UI that suggests example queries like "What is the price of AAPL?" or "Alert me when BTC hits $100k."
 ```
 
 **Prompt:**
