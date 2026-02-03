@@ -1,5 +1,4 @@
 import { routeAgentRequest, type Schedule } from "agents";
-import { getSchedulePrompt } from "agents/schedule";
 import { AIChatAgent } from "@cloudflare/ai-chat";
 import {
   generateId,
@@ -78,7 +77,6 @@ export class Chat extends AIChatAgent<Env> {
 Tools available:
 - getStockPrice: Get real-time stock data.
 - getCryptoPrice: Get real-time crypto data.
-- calculateSMA: Calculate Simple Moving Average.
 - setPriceAlert/listAlerts/deleteAlert: Manage price alerts.
 
 Guidelines:

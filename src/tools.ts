@@ -195,134 +195,9 @@ const getCryptoPrice = tool({
   }
 });
 
-/**
- * Calculate Simple Moving Average (SMA) for a stock
- */
-const calculateSMA = tool({
-  description:
-    "Calculate the Simple Moving Average (SMA) for a stock over a specified number of days",
-  inputSchema: z.object({
-    symbol: z.string().describe("Stock ticker symbol"),
-    days: z.number().min(5).max(200).describe("Number of days for SMA (5-200)")
-  }),
-  execute: async ({ symbol, days }) => {
-    try {
-      const upperSymbol = symbol.toUpperCase();
 
-      // Get API keys from shared config
-      const apiKey = apiConfig.alpacaApiKey;
-      const secretKey = apiConfig.alpacaSecretKey;
 
-      if (!apiKey || !secretKey) {
-        return "Alpaca API keys not configured.";
-      }
 
-      // Fetch historical bars from Alpaca
-      // We need to provide a start date slightly further back than 'days' to account for weekends/holidays
-      const lookbackDays = Math.ceil(days * 2 + 10);
-      const startDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
-
-      const response = await fetch(
-        `https://data.alpaca.markets/v2/stocks/${upperSymbol}/bars?timeframe=1Day&start=${startDate}&limit=${1000}`,
-        {
-          headers: {
-            "APCA-API-KEY-ID": apiKey,
-            "APCA-API-SECRET-KEY": secretKey
-          }
-        }
-      );
-
-      if (!response.ok) {
-        return `API error fetching history for ${upperSymbol}`;
-      }
-
-      const data = (await response.json()) as any;
-      const bars = data.bars;
-
-      if (!bars || bars.length < days) {
-        return `Not enough historical data for ${days}-day SMA. Found ${bars?.length || 0} days.`;
-      }
-
-      // Use the last 'days' bars
-      const relevantBars = bars.slice(-days);
-      const closes = relevantBars.map((b: any) => b.c);
-      const currentPrice = closes[closes.length - 1]; // Use latest close as current price reference
-
-      const sma =
-        closes.reduce((sum: number, price: number) => sum + price, 0) /
-        closes.length;
-
-      const percentFromSMA = ((currentPrice - sma) / sma) * 100;
-      const trend = percentFromSMA > 0 ? "above" : "below";
-
-      return {
-        symbol: upperSymbol,
-        currentPrice: `$${currentPrice.toFixed(2)}`,
-        sma: `$${sma.toFixed(2)}`,
-        period: `${days}-day`,
-        percentFromSMA: percentFromSMA.toFixed(2) + "%",
-        trend: `Price is ${Math.abs(percentFromSMA).toFixed(2)}% ${trend} the ${days}-day SMA`,
-        signal:
-          percentFromSMA > 0
-            ? "Bullish (price above SMA)"
-            : "Bearish (price below SMA)"
-      };
-    } catch (error) {
-      return `Error calculating SMA: ${error}`;
-    }
-  }
-});
-
-/**
- * Get price change over a time period
- */
-const getPriceChange = tool({
-  description: "Get the price change of a stock over a specific time period",
-  inputSchema: z.object({
-    symbol: z.string().describe("Stock ticker symbol"),
-    period: z
-      .enum(["1d", "5d", "1mo", "3mo", "6mo", "1y"])
-      .describe("Time period for comparison")
-  }),
-  execute: async ({ symbol, period }) => {
-    try {
-      const upperSymbol = symbol.toUpperCase();
-      const response = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${upperSymbol}?interval=1d&range=${period}`
-      );
-      const data = (await response.json()) as any;
-
-      if (data.chart?.error) {
-        return `Could not find stock: ${upperSymbol}`;
-      }
-
-      const closes = data.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-      const meta = data.chart?.result?.[0]?.meta;
-
-      if (!closes || closes.length === 0) {
-        return `No data available for ${upperSymbol}`;
-      }
-
-      const validCloses = closes.filter((c: number | null) => c !== null);
-      const startPrice = validCloses[0];
-      const currentPrice = meta.regularMarketPrice;
-      const change = currentPrice - startPrice;
-      const changePercent = (change / startPrice) * 100;
-
-      return {
-        symbol: upperSymbol,
-        period,
-        startPrice: startPrice.toFixed(2),
-        currentPrice: currentPrice.toFixed(2),
-        change: change.toFixed(2),
-        changePercent: changePercent.toFixed(2) + "%",
-        performance: changePercent >= 0 ? "📈 Positive" : "📉 Negative"
-      };
-    } catch (error) {
-      return `Error getting price change: ${error}`;
-    }
-  }
-});
 
 // ==================== PRICE ALERTS ====================
 
@@ -479,8 +354,6 @@ const scheduleTask = tool({
 export const tools = {
   getStockPrice,
   getCryptoPrice,
-  calculateSMA,
-  getPriceChange,
   setPriceAlert,
   listAlerts,
   deleteAlert,
